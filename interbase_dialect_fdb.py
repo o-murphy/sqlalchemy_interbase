@@ -574,15 +574,13 @@ class FBDialect_interbase(FBDialect):
     def get_check_constraints(self, connection, table_name, schema=None, **kw):
         check_constraints_query = """
             SELECT LTRIM(RTRIM(rc.rdb$constraint_name)) AS cname,
-                   LTRIM(RTRIM(SUBSTRING(tr.rdb$trigger_source FROM 8 FOR CHAR_LENGTH(tr.rdb$trigger_source)) - 8)) AS sqltext
+                   SUBSTR(tr.rdb$trigger_source, 8, STRLEN(tr.rdb$trigger_source) - 7) AS sqltext
             FROM rdb$relation_constraints rc
-                 JOIN rdb$check_constraints ck
-                   ON ck.rdb$constraint_name = rc.rdb$constraint_name
-                 JOIN rdb$triggers tr
-                   ON tr.rdb$trigger_name = ck.rdb$trigger_name AND
-                      tr.rdb$trigger_type = 'PRE_STORE'
-            WHERE rc.rdb$constraint_type = 'CHECK' AND
-                  rc.rdb$relation_name = LTRIM(RTRIM(?))
+                 JOIN rdb$check_constraints ck ON ck.rdb$constraint_name = rc.rdb$constraint_name
+                 JOIN rdb$triggers tr ON tr.rdb$trigger_name = ck.rdb$trigger_name
+            WHERE rc.rdb$constraint_type = 'CHECK'
+                  AND rc.rdb$relation_name = LTRIM(RTRIM(?))
+                  AND tr.rdb$trigger_type = 1
             ORDER BY 1
         """
         tablename = self.denormalize_name(table_name)
