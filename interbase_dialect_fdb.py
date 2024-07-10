@@ -4,14 +4,32 @@ from sqlalchemy import types as sa_types
 from sqlalchemy import util
 from sqlalchemy.dialects import registry
 from sqlalchemy.engine import reflection
-from sqlalchemy_firebird.base import FBDialect
+from sqlalchemy_firebird.base import FBDialect, FBDDLCompiler
 
 EXPRESSION_SEPARATOR = "||"
 
 
+class IBDDLCompiler(FBDDLCompiler):
+
+    def visit_create_sequence(self, create, prefix=None, **kw):
+        text = "CREATE GENERATOR "
+        if create.if_not_exists:
+            text += "IF NOT EXISTS "
+        text += self.preparer.format_sequence(create.element)
+
+        if prefix:
+            text += prefix
+        options = self.get_identity_options(create.element)
+        if options:
+            text += " " + options
+        return text
+
+
 # Define your custom Firebird dialect
-class FBDialect_interbase(FBDialect):
+class IBDialect(FBDialect):
     driver = 'interbase'
+
+    ddl_compiler = IBDDLCompiler
 
     @classmethod
     def dbapi(cls):
@@ -640,4 +658,4 @@ class FBDialect_interbase(FBDialect):
 
 
 # Register the custom dialect
-registry.register("firebird.interbase", __name__, "FBDialect_interbase")
+registry.register("interbase", __name__, "IBDialect")
