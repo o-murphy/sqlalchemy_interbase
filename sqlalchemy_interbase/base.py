@@ -1,13 +1,11 @@
 # Allow circular references between IBDialect and IBInspector
 from __future__ import annotations
 
-from math import modf
-
-from packaging import version
-
 from typing import List
 from typing import Optional
 
+import interbase as interbase_driver
+from packaging import version
 from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy import exc
 from sqlalchemy import schema as sa_schema
@@ -22,7 +20,6 @@ from sqlalchemy.sql import coercions
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import expression
 from sqlalchemy.sql import roles
-import interbase as interbase_driver
 
 import sqlalchemy_interbase.types as ib_types
 from sqlalchemy_interbase.ib_info import MAX_IDENTIFIER_LENGTH, RESERVED_WORDS
@@ -38,7 +35,7 @@ def coalesce(*arg):
 
 class IBCompiler(sql.compiler.SQLCompiler):
     def render_bind_cast(self, type_, dbapi_type, sqltext):
-        return f"""CAST({sqltext}) AS {
+        return f"""CAST({sqltext} AS {
         self.dialect.type_compiler_instance.process(
             dbapi_type, identifier_preparer=self.preparer
         )
@@ -261,37 +258,13 @@ class IBDDLCompiler(sql.compiler.DDLCompiler):
 
         if prefix:
             text += prefix
-        options = self.get_identity_options(create.element)
-        if options:
-            text += " " + options
+        # options = self.get_identity_options(create.element)
+        # if options:
+        #     text += " " + options
         return text
 
-    def get_identity_options(self, identity_options):
-        print("get identity options")
-        firebird_3_or_lower = (
-            self.dialect.server_version_info
-            and self.dialect.server_version_info < (4,)
-        )
-
-        txt = []
-        if identity_options.start is not None:
-            start = identity_options.start
-
-            # Firebird 3 has distinct START WITH semantic.
-            # https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html#rnfb40-compat-sql-sequence-start-value
-            # Previous versions of dialect tried to hide this (adjusting here the reflected start value).
-            # This was removed since it opens a can of worms (e.g. when reading databases NOT created by SQLAlchemy).
-
-            txt.append("STARTING AT %d" % start)
-
-        if not firebird_3_or_lower:
-            if identity_options.increment is not None:
-                txt.append("INCREMENT BY %d" % identity_options.increment)
-
-        return " ".join(txt)
-
     def visit_create_index(
-        self, create, include_schema=False, include_table_schema=True, **kw
+            self, create, include_schema=False, include_table_schema=True, **kw
     ):
         preparer = self.preparer
         index = create.element
@@ -382,24 +355,6 @@ class IBDDLCompiler(sql.compiler.DDLCompiler):
         return "COMPUTED BY (%s)" % self.sql_compiler.process(
             computed_column.sqltext, include_table=False, literal_binds=True
         )
-
-    def get_identity_options(self, identity_options):
-        txt = []
-        if identity_options.start is not None:
-            start = identity_options.start
-            txt.append("STARTING AT %d" % start)
-
-        return " ".join(txt)
-
-    def visit_identity_column(self, identity, **kw):
-        text = "INTEGER"
-
-        options = self.get_identity_options(identity)
-        if options:
-            text += " " + options
-
-        return text
-
 
 
 class IBTypeCompiler(compiler.GenericTypeCompiler):
@@ -553,11 +508,11 @@ class IBIdentifierPreparer(sql.compiler.IdentifierPreparer):
 
 
 class IBExecutionContext(default.DefaultExecutionContext):
-    def inter_sequence(self, seq, type_):
+    def fire_sequence(self, seq, type_):
         return self._execute_scalar(
             (
-                "SELECT GEN_ID(%s, 1) FROM rdb$database"
-                % self.dialect.identifier_preparer.format_sequence(seq)
+                    "SELECT GEN_ID(%s, 1) FROM rdb$database"
+                    % self.dialect.identifier_preparer.format_sequence(seq)
             ),
             type_,
         )
@@ -581,11 +536,12 @@ class ReflectedDomain(util.typing.TypedDict):
     """The comment of the domain, if any.
     """
 
+
 class IBInspector(reflection.Inspector):
     dialect: IBDialect
 
     def get_domains(
-        self, schema: Optional[str] = None
+            self, schema: Optional[str] = None
     ) -> List[ReflectedDomain]:
         with self._operation_context() as conn:
             return self.dialect._load_domains(
@@ -631,7 +587,7 @@ class IBDialect(default.DefaultDialect):
     supports_is_distinct_from = True
 
     requires_name_normalize = True
-    
+
     colspecs = {
         sa_types.String: ib_types._IBString,
         sa_types.Numeric: ib_types._IBNumeric,
@@ -887,8 +843,10 @@ class IBDialect(default.DefaultDialect):
             ORDER BY rf.rdb$field_position
         """
 
-        is_firebird_25 = self.server_version_info < (3,)
-        has_identity_columns = not is_firebird_25
+        # is_firebird_25 = self.server_version_info < (3,)
+        # has_identity_columns = not is_firebird_25
+        # if not has_identity_columns:
+        has_identity_columns = False
         if not has_identity_columns:
             # Firebird 2.5 doesn't have RDB$GENERATOR_NAME nor RDB$IDENTITY_TYPE in RDB$RELATION_FIELDS
             #   Remove query lines containing [fb3+]
@@ -905,14 +863,21 @@ class IBDialect(default.DefaultDialect):
             colname = self.normalize_name(orig_colname)
 
             # Extract data type
-            colclass = self.ischema_names.get(row.field_type)
+
+            if isinstance(row.field_type, str):
+                field_type = row.field_type.strip()
+            else:
+                field_type = row.field_type
+
+            colclass = self.ischema_names.get(field_type)
+            print("COLCLASS", row.field_type, colclass)
             if colclass is None:
                 util.warn(
                     "Unknown type '%s' in column '%s'. Check IBDialect.ischema_names."
                     % (row.field_type, colname)
                 )
                 coltype = sa_types.NULLTYPE
-            elif issubclass(colclass, ib_types._FBString):
+            elif issubclass(colclass, ib_types._IBString):
                 if row.character_set_name == ib_types.BINARY_CHARSET:
                     if colclass == ib_types.IBCHAR:
                         colclass = ib_types.IBBINARY
@@ -929,10 +894,10 @@ class IBDialect(default.DefaultDialect):
                     charset=row.character_set_name,
                     collation=row.collation_name,
                 )
-            elif issubclass(colclass, ib_types._FBNumeric):
+            elif issubclass(colclass, ib_types._IBNumeric):
                 # FLOAT, DOUBLE PRECISION or DECFLOAT
                 coltype = colclass(row.field_precision)
-            elif issubclass(colclass, ib_types._FBInteger):
+            elif issubclass(colclass, ib_types._IBInteger):
                 # NUMERIC / DECIMAL types are stored as INTEGER types
                 if row.field_sub_type == 0:
                     # INTEGERs
@@ -950,7 +915,7 @@ class IBDialect(default.DefaultDialect):
             elif issubclass(colclass, sa_types.DateTime):
                 has_timezone = "WITH TIME ZONE" in row.field_type
                 coltype = colclass(timezone=has_timezone)
-            elif issubclass(colclass, ib_types._FBLargeBinary):
+            elif issubclass(colclass, ib_types._IBLargeBinary):
                 if row.field_sub_type == 1:
                     coltype = ib_types.IBTEXT(
                         row.segment_length,

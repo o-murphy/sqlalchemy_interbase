@@ -1,16 +1,16 @@
 # reflect.py
 import os
 
-import interbase_dialect_fdb
+import sqlalchemy_interbase.base
 
-assert interbase_dialect_fdb
+assert sqlalchemy_interbase.base
 from sqlalchemy import create_engine, MetaData, Column, String
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Define your connection URL
 relative_path = 'TEST.DB'
 dsn = os.path.join(os.getcwd(), relative_path)
-connection_string = f'firebird+interbase://sysdba:masterkey@localhost/{dsn}'
+connection_string = f'interbase://sysdba:masterkey@localhost/{dsn}'
 
 # Create the SQLAlchemy engine
 engine = create_engine(connection_string)
