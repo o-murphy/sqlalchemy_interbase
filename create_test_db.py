@@ -7,7 +7,7 @@ current_dir = os.getcwd()
 # Define the relative path and construct the full DSN
 relative_path = 'TEST.DB'
 dsn = f'localhost/3051:{os.path.join(current_dir, relative_path)}'
-print(dsn)
+
 # Define the connection parameters
 user = 'sysdba'
 password = 'masterkey'
@@ -21,6 +21,8 @@ connection = interbase.create_database(
     page_size=4096,  # Optional parameter
     charset=charset,  # Set the default charset
 )
+
+# Connect database
 # connection = interbase.connect(
 #     dsn=dsn,
 #     user=user,

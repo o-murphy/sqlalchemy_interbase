@@ -4,7 +4,6 @@ from typing import Any
 from typing import Optional
 from sqlalchemy import Dialect, types as sqltypes
 
-
 # Character set of BINARY/VARBINARY
 BINARY_CHARSET = "OCTETS"
 
@@ -95,11 +94,11 @@ class IBREAL(IBFLOAT):
 
 class _IBFixedPoint(_IBNumeric):
     def __init__(
-        self,
-        precision=None,
-        scale=None,
-        decimal_return_scale=None,
-        asdecimal=None,
+            self,
+            precision=None,
+            scale=None,
+            decimal_return_scale=None,
+            asdecimal=None,
     ):
         super().__init__(
             precision, scale, decimal_return_scale, asdecimal=True
@@ -154,7 +153,7 @@ class _IBLargeBinary(sqltypes.LargeBinary):
     render_bind_cast = True
 
     def __init__(
-        self, subtype=None, segment_size=None, charset=None, collation=None
+            self, subtype=None, segment_size=None, charset=None, collation=None
     ):
         super().__init__()
         self.subtype = subtype
@@ -173,8 +172,8 @@ class IBBLOB(_IBLargeBinary, sqltypes.BLOB):
     __visit_name__ = "BLOB"
 
     def __init__(
-        self,
-        segment_size=None,
+            self,
+            segment_size=None,
     ):
         super().__init__(0, segment_size)
 
@@ -183,10 +182,10 @@ class IBTEXT(_IBLargeBinary, sqltypes.TEXT):
     __visit_name__ = "BLOB"
 
     def __init__(
-        self,
-        segment_size=None,
-        charset=None,
-        collation=None,
+            self,
+            segment_size=None,
+            charset=None,
+            collation=None,
     ):
         super().__init__(1, segment_size, charset, collation)
 

@@ -3,6 +3,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.schema import CreateTable, DropTable, CreateIndex, DropIndex
 from sqlalchemy.testing.provision import temp_table_keyword_args
 
+
 @temp_table_keyword_args.for_db("interbase")
 def _firebird_temp_table_keyword_args(cfg, eng):
     return {
@@ -10,6 +11,7 @@ def _firebird_temp_table_keyword_args(cfg, eng):
         "firebird.ib_on_commit": "PRESERVE ROWS",
         "firebird.interbase_on_commit": "PRESERVE ROWS",
     }
+
 
 @event.listens_for(Engine, "after_execute")
 def receive_after_execute(connection, statement, *arg):

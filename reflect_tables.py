@@ -1,20 +1,18 @@
-# reflect.py
 import os
 
 import sqlalchemy_interbase.base
 
 assert sqlalchemy_interbase.base
-from sqlalchemy import create_engine, MetaData, Column, String
+from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Define your connection URL
 relative_path = 'TEST.DB'
-dsn = os.path.join(os.getcwd(), relative_path)
-connection_string = f'interbase://sysdba:masterkey@localhost/{dsn}'
+database_path = os.path.join(os.getcwd(), relative_path)
+connection_string = f"interbase://localhost:3051/{database_path}?charset=WIN1252"
 
 # Create the SQLAlchemy engine
 engine = create_engine(connection_string)
-
 
 # Create a session
 Session = sessionmaker(bind=engine)
@@ -24,6 +22,7 @@ metadata = MetaData()
 metadata.reflect(bind=engine)
 
 Base = declarative_base()
+
 
 def generate_class_code(table):
     class_name = table.name.capitalize()
@@ -35,6 +34,7 @@ class {class_name}(Base):
 """
     return class_code
 
+
 # Generate and print the class definitions
 for table_name, table in metadata.tables.items():
     if table_name != "sample_table":
@@ -42,11 +42,13 @@ for table_name, table in metadata.tables.items():
     class_code = generate_class_code(table)
     print(class_code)
 
+
 class BaseModel:
     @classmethod
     def __declare_last__(cls):
         # This method will be called after all classes have been declared
         pass
+
 
 models = {}
 

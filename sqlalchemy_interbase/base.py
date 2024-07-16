@@ -672,21 +672,75 @@ class IBDialect(default.DefaultDialect):
     #     return ([], opts)
 
     def create_connect_args(self, url):
-        opts = url.translate_connect_args(username='user', password='password', database='dsn')
-        opts.update(url.query)
-        opts.pop('port', None)
+        """
+        DSN must supply one of:
+            1. keyword argument dsn='host:/path/to/database'
+            2. both keyword arguments host='host' and database='/path/to/database'
+            3. only keyword argument database='/path/to/database'
 
-        if 'charset' in opts:
-            opts['charset'] = opts['charset'].upper()
-        else:
-            opts['charset'] = 'WIN1252'
+        Kwargs:
+            sql='',
+            sql_dialect=3,
+            dsn='',
+            user=None,
+            password=None,
+            host=None,
+            database=None,
+            page_size=None,
+            length=None,
+            charset=None,
+            files=None,
+            connection_class=None,
+            ib_library_name=None,
+            ssl=False,
+            client_pass_phrase_file=None,
+            client_pass_phrase=None,
+            client_cert_file=None,
+            server_public_file=None,
+            server_public_path=None,
+            embedded=False
+
+            Connector url must supply:
+            interbase://<username>:<password>@<host>:<port>/<database_path>[?charset=UTF8&key=value&key=value...]
+            ```
+
+        :param url:
+        :return:
+        """
+
+        opts = url.translate_connect_args()
+
+        driver_opts = {}
+        driver_opts.update(url.query)
+
+        try:
+            if 'host' not in opts:
+                raise KeyError('Missing host parameter')
+            if 'port' not in opts:
+                raise KeyError('Missing port parameter')
+            if 'database' not in opts:
+                raise KeyError('Missing database path parameter')
+        except KeyError as err:
+            raise KeyError(
+                "Connector url must supply: "
+                "interbase://<username>:<password>@<host>:<port>/<database_path>[?charset=UTF8&key=value&key=value...]"
+            ) from err
+
+        driver_opts['host'] = f"{opts.get('host', 'localhost')}/{opts.get('port', 3050)}"
+        driver_opts['database'] = opts.get('database')
+        driver_opts['user'] = opts.get('username', 'sysdba')
+        driver_opts['password'] = opts.get('password', 'masterkey')
+        driver_opts['sql_dialect'] = opts.get('sql_dialect', 3)
+        driver_opts['charset'] = opts.get('charset', 'WIN1252').upper()
+
+        print("drvopts", driver_opts)
 
         # Ensure the DSN is correctly formed
-        dsn = opts.pop('dsn')
-        opts['host'] = None
-        opts['dsn'] = f'localhost/3051:{dsn}'
+        # driver_opts['dsn'] = f"localhost/3051:{driver_opts['database']}"
+        # driver_opts.pop('host')
+        # driver_opts.pop('database')
 
-        return [], opts
+        return [], driver_opts
 
     # def _get_server_version_info(self, connection):
     #     dbapi_connection = (
