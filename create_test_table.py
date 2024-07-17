@@ -13,7 +13,7 @@ logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 relative_path = 'TEST.DB'
 database_path = os.path.join(os.getcwd(), relative_path)
-connection_string = f"interbase://sysdba:masterkey@localhost:3051/{database_path}?charset=WIN1252"
+connection_string = f"interbase://sysdba:masterkey@localhost:3050/{database_path}?charset=WIN1252"
 engine = create_engine(connection_string, echo=True)
 
 # Create session class
