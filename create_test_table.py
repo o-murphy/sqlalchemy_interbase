@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, Column, Sequence, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import DatabaseError
 
-from sqlalchemy_interbase import IBINTEGER, IBVARCHAR
+from sqlalchemy_interbase import *
 
 # Enable logging
 logging.basicConfig()
@@ -38,31 +38,37 @@ class IBase(Base):
     __table_args__ = {'implicit_returning': False}
 
 
-class SampleTable4(IBase):
-    __tablename__ = 'sampletable4'
+class Sampletable(Base):
+    __tablename__ = 'SAMPLETABLE2'
+    id = Column(IBINTEGER, default=Sequence(f'{__tablename__}_id_gen'), primary_key=True, nullable=False, autoincrement=True)
+    ib_blob = Column(IBBLOB(segment_size=80))
+    ib_bool = Column(IBBOOLEAN())
+    ib_cstring = Column(IBVARCHAR(length=10, charset='WIN1252', collation='WIN1252'))
+    ib_date = Column(IBDATE())
+    ib_double = Column(IBDOUBLE_PRECISION())
+    ib_float = Column(IBFLOAT())
+    ib_long = Column(IBINTEGER())
+    ib_short = Column(IBSMALLINT())
+    ib_text = Column(IBCHAR(length=10, charset='WIN1252', collation='WIN1252'))
+    ib_time = Column(IBTIME())
+    ib_timestamp = Column(IBTIMESTAMP())
+    ib_varying = Column(IBVARCHAR(length=10, charset='WIN1252', collation='WIN1252'))
 
-    id = Column(IBINTEGER,
-                Sequence(f'{__tablename__}_id_gen'),
-                primary_key=True,
-                autoincrement=True
-                )
-    name = Column(IBVARCHAR(50))
-    value = Column(IBINTEGER)
 
 
 Base.metadata.create_all(engine)
 
-session = Session()
-
-instances = [
-    SampleTable4(name='Test1', value=123),
-    SampleTable4(name='Test2', value=456)
-]
-session.add_all(instances)
-session.commit()
-
-items = session.query(SampleTable4).all()
-for i in items:
-    print(i.id, i.name, i.value)
-
-session.close()
+# session = Session()
+#
+# instances = [
+#     SampleTable(name='Test1', value=123),
+#     SampleTable(name='Test2', value=456)
+# ]
+# session.add_all(instances)
+# session.commit()
+#
+# items = session.query(SampleTable).all()
+# for i in items:
+#     print(i.id, i.name, i.value)
+#
+# session.close()

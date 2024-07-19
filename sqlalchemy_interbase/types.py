@@ -174,8 +174,11 @@ class IBBLOB(_IBLargeBinary, sqltypes.BLOB):
     def __init__(
             self,
             segment_size=None,
+            subtype=None,  # Default subtype
+            charset=None,
+            collation=None,
     ):
-        super().__init__(0, segment_size)
+        super().__init__(subtype, segment_size, charset, collation)
 
 
 class IBTEXT(_IBLargeBinary, sqltypes.TEXT):

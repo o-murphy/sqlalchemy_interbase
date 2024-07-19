@@ -250,7 +250,7 @@ class IBDDLCompiler(sql.compiler.DDLCompiler):
         """)
 
     def visit_create_sequence(self, create, prefix=None, **kw):
-        print('CREATE GEN')
+
         text = "CREATE GENERATOR "
         if create.if_not_exists:
             text += "IF NOT EXISTS "
@@ -476,25 +476,17 @@ class IBTypeCompiler(compiler.GenericTypeCompiler):
         }
 
     def visit_TIMESTAMP(self, type_, **kw):
-        if self.dialect.server_version_info < (4,):
-            return super().visit_TIMESTAMP(type_, **kw)
-
-        return "TIMESTAMP%s %s" % (
+        return "TIMESTAMP%s" % (
             "(%d)" % type_.precision
             if getattr(type_, "precision", None) is not None
-            else "",
-            (type_.timezone and "WITH" or "WITHOUT") + " TIME ZONE",
+            else ""
         )
 
     def visit_TIME(self, type_, **kw):
-        if self.dialect.server_version_info < (4,):
-            return super().visit_TIME(type_, **kw)
-
-        return "TIME%s %s" % (
+        return "TIME%s" % (
             "(%d)" % type_.precision
             if getattr(type_, "precision", None) is not None
-            else "",
-            (type_.timezone and "WITH" or "WITHOUT") + " TIME ZONE",
+            else ""
         )
 
 
@@ -733,8 +725,6 @@ class IBDialect(default.DefaultDialect):
         driver_opts['sql_dialect'] = opts.get('sql_dialect', 3)
         driver_opts['charset'] = opts.get('charset', 'WIN1252').upper()
 
-        print("drvopts", driver_opts)
-
         # Ensure the DSN is correctly formed
         # driver_opts['dsn'] = f"localhost/3051:{driver_opts['database']}"
         # driver_opts.pop('host')
@@ -863,18 +853,18 @@ class IBDialect(default.DefaultDialect):
             self, connection, table_name, schema=None, **kw
     ):
         columns_query = """
-            SELECT LTRIM(RTRIM(rf.rdb$field_name)) AS field_name,
+            SELECT RTRIM(rf.rdb$field_name) AS field_name,
                    COALESCE(rf.rdb$null_flag, f.rdb$null_flag) AS null_flag,
-                   LTRIM(RTRIM(t.rdb$type_name)) AS field_type,
+                   RTRIM(t.rdb$type_name) AS field_type,
                    f.rdb$field_length / COALESCE(cs.rdb$bytes_per_character, 1) AS field_length,
                    f.rdb$field_precision AS field_precision,
                    f.rdb$field_scale * -1 AS field_scale,
                    f.rdb$field_sub_type AS field_sub_type,
                    f.rdb$segment_length AS segment_length,
-                   LTRIM(RTRIM(cs.rdb$character_set_name)) as character_set_name,
-                   LTRIM(RTRIM(cl.rdb$collation_name)) as collation_name,
+                   RTRIM(cs.rdb$character_set_name) as character_set_name,
+                   RTRIM(cl.rdb$collation_name) as collation_name,
                    COALESCE(rf.rdb$default_source, f.rdb$default_source) AS default_source,
-                   LTRIM(RTRIM(rf.rdb$description)) AS description,
+                   RTRIM(rf.rdb$description) AS description,
                    f.rdb$computed_source AS computed_source
                   ,rf.rdb$identity_type AS identity_type,                      -- [fb3+]
                    g.rdb$initial_value AS initial_value,                       -- [fb3+]
@@ -892,6 +882,13 @@ class IBDialect(default.DefaultDialect):
                        AND cl.rdb$character_set_id = cs.rdb$character_set_id
                  LEFT JOIN rdb$generators g                                    -- [fb3+]
                         ON g.rdb$generator_name = rf.rdb$generator_name        -- [fb3+]
+                 LEFT JOIN rdb$index_segments pk
+                    ON pk.rdb$field_name = rf.rdb$field_name
+                    AND pk.rdb$index_name = (
+                        SELECT rdb$index_name
+                        FROM rdb$indices
+                        WHERE rdb$index_type = 0 -- Primary index
+                    )
             WHERE COALESCE(f.rdb$system_flag, 0) = 0
               AND rf.rdb$relation_name = LTRIM(RTRIM(?))
             ORDER BY rf.rdb$field_position
@@ -924,7 +921,7 @@ class IBDialect(default.DefaultDialect):
                 field_type = row.field_type
 
             colclass = self.ischema_names.get(field_type)
-            print("COLCLASS", row.field_type, colclass)
+
             if colclass is None:
                 util.warn(
                     "Unknown type '%s' in column '%s'. Check IBDialect.ischema_names."
@@ -945,18 +942,18 @@ class IBDialect(default.DefaultDialect):
 
                 coltype = colclass(
                     length=row.field_length,
-                    charset=row.character_set_name,
-                    collation=row.collation_name,
+                    charset=row.character_set_name.strip(),
+                    collation=row.collation_name.strip(),
                 )
             elif issubclass(colclass, ib_types._IBNumeric):
                 # FLOAT, DOUBLE PRECISION or DECFLOAT
                 coltype = colclass(row.field_precision)
             elif issubclass(colclass, ib_types._IBInteger):
                 # NUMERIC / DECIMAL types are stored as INTEGER types
-                if row.field_sub_type == 0:
+                if row.field_sub_type is None:
                     # INTEGERs
                     coltype = colclass()
-                elif row.field_sub_type == 1:
+                elif row.field_sub_type is not None:
                     # NUMERIC
                     coltype = ib_types.IBNUMERIC(
                         precision=row.field_precision, scale=row.field_scale
@@ -1021,7 +1018,7 @@ class IBDialect(default.DefaultDialect):
 
                 col_d["autoincrement"] = "identity" in col_d
             else:
-                # For Firebird 2.5
+                # For Firebird 2.5 / Interbase
 
                 # A backend is better off not returning "autoincrement" at all,
                 # instead of potentially returning "False" for an auto-incrementing
