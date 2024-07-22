@@ -5,11 +5,11 @@ from sqlalchemy.testing.provision import temp_table_keyword_args
 
 
 @temp_table_keyword_args.for_db("interbase")
-def _firebird_temp_table_keyword_args(cfg, eng):
+def _interbase_temp_table_keyword_args(cfg, eng):
     return {
         "prefixes": ["GLOBAL TEMPORARY"],
-        "firebird.ib_on_commit": "PRESERVE ROWS",
-        "firebird.interbase_on_commit": "PRESERVE ROWS",
+        "interbase.ib_on_commit": "PRESERVE ROWS",
+        "interbase.interbase_on_commit": "PRESERVE ROWS",
     }
 
 
